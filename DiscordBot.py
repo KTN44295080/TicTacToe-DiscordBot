@@ -1,3 +1,5 @@
+from dotenv import load_dotenv
+import os
 import re
 import random
 import unicodedata
@@ -9,10 +11,10 @@ from discord.commands import Option
 
 class GameStats:
     def __init__(self):
-        self.division = 3
-        self.arrangeCount = self.division
-        self.fields = [[0] * self.division for i in range(self.division)]
-        self.squareCount = self.division * self.division
+        self.row = 3
+        self.connect = self.row
+        self.fields = [[0] * self.row for i in range(self.row)]
+        self.squareCount = self.row * self.row
         self.turn = 0
         self.isMatch = False
         self.playerNames = []
@@ -20,20 +22,21 @@ class GameStats:
         self.turnPlayer = 0
 
     def Reset(self):
-        self.fields = [[0] * self.division for i in range(self.division)]
+        self.fields = [[0] * self.row for i in range(self.row)]
         self.isMatch = False
         self.turn = 0
-        self.squareCount = self.division * self.division
+        self.squareCount = self.row * self.row
         self.playerNames = []
         self.playerIds = []
         self.turnPlayer = 0
 
 
-TOKEN = "WRITE YOUR TOKEN"
+load_dotenv()
+gameStats = GameStats()
+TOKEN = os.getenv("TOKEN")
 status = "/play"
 statustype = discord.ActivityType.watching
 bot = commands.Bot(command_prefix="/", intents=discord.Intents.all())
-gameStats = GameStats()
 
 
 @bot.event
@@ -52,7 +55,7 @@ async def on_message(message):
     else:
         result = int(re.sub(r"\D", "", unicodedata.normalize("NFKC", message.content)))
         if result > 0 and result <= gameStats.squareCount:
-            index = divmod(result - 1, gameStats.division)
+            index = divmod(result - 1, gameStats.row)
             if gameStats.fields[index[0]][index[1]] != 0:
                 await message.channel.send("そのマスには既に置かれています")
                 return
@@ -74,8 +77,8 @@ async def on_message(message):
                 pos = ReachCheck()
                 if pos == None:
                     while True:
-                        x = random.randint(0, gameStats.division - 1)
-                        y = random.randint(0, gameStats.division - 1)
+                        x = random.randint(0, gameStats.row - 1)
+                        y = random.randint(0, gameStats.row - 1)
                         if gameStats.fields[y][x] == 0:
                             pos = y, x
                             break
@@ -130,8 +133,8 @@ async def play(
             return
         if player == ctx.author.display_name:
             await ctx.respond("【注意】己との対戦になります")
-    gameStats.division = square
-    gameStats.arrangeCount = square
+    gameStats.row = square
+    gameStats.connect = square
     gameStats.Reset()
     gameStats.isMatch = True
     gameStats.playerNames.append(ctx.author.display_name)
@@ -149,7 +152,7 @@ async def play(
     loopCount = 0
     for i in range(len(gameStats.fields)):
         for j in range(len(gameStats.fields[i])):
-            if loopCount % gameStats.division == 0:
+            if loopCount % gameStats.row == 0:
                 textField += "\n"
             loopCount += 1
             if loopCount < 10:
@@ -159,9 +162,9 @@ async def play(
     await ctx.send(textField)
 
 
-@bot.slash_command(description=f"{gameStats.division}目並べを終了します")
+@bot.slash_command(description=f"{gameStats.row}目並べを終了します")
 async def end(ctx):
-    await ctx.respond(f"{gameStats.division}目並べを終了しました")
+    await ctx.respond(f"{gameStats.row}目並べを終了しました")
     gameStats.Reset()
 
 
@@ -180,7 +183,7 @@ def DrawField():
     loopCount = 0
     for i in range(len(gameStats.fields)):
         for j in range(len(gameStats.fields[i])):
-            if loopCount % gameStats.division == 0:
+            if loopCount % gameStats.row == 0:
                 textField += "\n"
             loopCount += 1
 
@@ -198,52 +201,50 @@ def DrawField():
 
 def ReachCheck():
     for i in reversed(range(1, 3)):
-        for y in range(gameStats.division):
+        for y in range(gameStats.row):
             if (
-                gameStats.fields[y].count(i) == gameStats.arrangeCount - 1
+                gameStats.fields[y].count(i) == gameStats.connect - 1
                 and 0 in gameStats.fields[y]
             ):
                 if i != 0:
                     return y, gameStats.fields[y].index(0)
 
-        for x in range(gameStats.division):
+        for x in range(gameStats.row):
             column = [c[x] for c in gameStats.fields]
-            if column.count(i) == gameStats.arrangeCount - 1 and 0 in column:
+            if column.count(i) == gameStats.connect - 1 and 0 in column:
                 if i != 0:
                     return column.index(0), x
 
-        diagonal = [gameStats.fields[n][n] for n in range(gameStats.division)]
-        if diagonal.count(i) == gameStats.arrangeCount - 1 and 0 in diagonal:
+        diagonal = [gameStats.fields[n][n] for n in range(gameStats.row)]
+        if diagonal.count(i) == gameStats.connect - 1 and 0 in diagonal:
             index = diagonal.index(0)
             return index, index
         diagonal = [
-            gameStats.fields[n][gameStats.division - 1 - n]
-            for n in range(gameStats.division)
+            gameStats.fields[n][gameStats.row - 1 - n] for n in range(gameStats.row)
         ]
-        if diagonal.count(i) == gameStats.arrangeCount - 1 and 0 in diagonal:
+        if diagonal.count(i) == gameStats.connect - 1 and 0 in diagonal:
             index = diagonal.index(0)
-            return index, gameStats.division - 1 - index
+            return index, gameStats.row - 1 - index
 
 
 def LineCheck():
     winner = 0
     for i in range(1, 3):
-        for x in range(gameStats.division):
+        for x in range(gameStats.row):
             column = [c[x] for c in gameStats.fields]
-            if column.count(i) == gameStats.arrangeCount:
+            if column.count(i) == gameStats.connect:
                 winner = i
-        for y in range(gameStats.division):
-            if gameStats.fields[y].count(i) == gameStats.arrangeCount:
+        for y in range(gameStats.row):
+            if gameStats.fields[y].count(i) == gameStats.connect:
                 winner = i
 
-        diagonal = [gameStats.fields[n][n] for n in range(gameStats.division)]
-        if diagonal.count(i) == gameStats.arrangeCount:
+        diagonal = [gameStats.fields[n][n] for n in range(gameStats.row)]
+        if diagonal.count(i) == gameStats.connect:
             winner = i
         diagonal = [
-            gameStats.fields[n][gameStats.division - 1 - n]
-            for n in range(gameStats.division)
+            gameStats.fields[n][gameStats.row - 1 - n] for n in range(gameStats.row)
         ]
-        if diagonal.count(i) == gameStats.arrangeCount:
+        if diagonal.count(i) == gameStats.connect:
             winner = i
     return winner
 
